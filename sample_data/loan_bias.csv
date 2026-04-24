@@ -1,0 +1,17 @@
+id,race,income,credit_score,loan_status,predicted_loan
+1,Group A,50000,700,1,1
+2,Group B,45000,680,1,0
+3,Group A,75000,750,1,1
+4,Group B,40000,650,0,0
+5,Group A,60000,710,1,1
+6,Group B,55000,690,1,0
+7,Group A,85000,800,1,1
+8,Group B,42000,660,1,0
+9,Group A,52000,705,1,1
+10,Group B,48000,670,0,0
+11,Group A,95000,850,1,1
+12,Group B,65000,720,1,1
+13,Group A,40000,640,0,0
+14,Group B,38000,630,0,0
+15,Group A,58000,715,1,1
+16,Group B,60000,700,1,0

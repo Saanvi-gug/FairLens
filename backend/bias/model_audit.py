@@ -22,20 +22,44 @@ def analyze_model(df, sensitive_col, target_col, prediction_col):
 
 	for group in groups:
 		subset = working_df[working_df[sensitive_col] == group]
+		positives = subset[subset[target_col] == 1]
+		predicted_positives = subset[subset[prediction_col] == 1]
+		
 		selection_rate = subset[prediction_col].mean()
-		target_rate = subset[target_col].mean()
+		tpr = positives[prediction_col].mean() if len(positives) > 0 else 0
+		precision = predicted_positives[target_col].mean() if len(predicted_positives) > 0 else 0
 
 		result[group] = {
 			"count": len(subset),
-			"selection_rate": round(float(selection_rate), 3) if pd.notna(selection_rate) else None,
-			"target_rate": round(float(target_rate), 3) if pd.notna(target_rate) else None,
+			"selection_rate": round(float(selection_rate), 3),
+			"tpr": round(float(tpr), 3),
+			"precision": round(float(precision), 3),
 		}
 
-	selection_rates = [v["selection_rate"] for v in result.values() if v["selection_rate"] is not None]
-	target_rates = [v["target_rate"] for v in result.values() if v["target_rate"] is not None]
+	selection_rates = [v["selection_rate"] for v in result.values()]
+	tprs = [v["tpr"] for v in result.values()]
+	precisions = [v["precision"] for v in result.values()]
+
+	statistical_parity_diff = max(selection_rates) - min(selection_rates)
+	equal_opportunity_diff = max(tprs) - min(tprs)
+	predictive_parity_diff = max(precisions) - min(precisions)
+
+	disparity = max(statistical_parity_diff, equal_opportunity_diff)
+	risk_level = "Low"
+	if disparity > 0.15: risk_level = "High"
+	elif disparity > 0.05: risk_level = "Medium"
 
 	return {
 		"group_analysis": result,
-		"selection_rate_disparity": round(max(selection_rates) - min(selection_rates), 3) if selection_rates else 0,
-		"tpr_disparity": round(max(target_rates) - min(target_rates), 3) if target_rates else 0,
+		"metrics": {
+			"statistical_parity_diff": round(statistical_parity_diff, 3),
+			"equal_opportunity_diff": round(equal_opportunity_diff, 3),
+			"predictive_parity_diff": round(predictive_parity_diff, 3),
+		},
+		"risk_level": risk_level,
+		"recommendations": [
+			"Use reweighting to improve fairness with minimal accuracy loss",
+			"Check if certain features are acting as proxies for the sensitive attribute",
+			"Consider post-processing to equalize odds if parity is required"
+		] if risk_level != "Low" else ["Model fairness is within acceptable bounds."]
 	}

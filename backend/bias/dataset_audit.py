@@ -24,7 +24,26 @@ def analyze_dataset(df, sensitive_col, target_col):
     rates = [v["selection_rate"] for v in result.values() if v["selection_rate"] is not None]
     disparity = max(rates) - min(rates) if rates else 0
 
+    risk_level = "Low"
+    recommendations = ["Dataset looks balanced. No immediate action required."]
+    
+    if disparity > 0.2:
+        risk_level = "High"
+        recommendations = [
+            "Significant bias detected. Consider re-sampling or using re-weighting.",
+            "Verify if the sensitive column is strongly correlated with the target.",
+            "Check for historical bias in data collection."
+        ]
+    elif disparity > 0.05:
+        risk_level = "Medium"
+        recommendations = [
+            "Moderate bias detected. Monitor the model impact.",
+            "Try adding more samples for the under-represented groups."
+        ]
+
     return {
         "group_analysis": result,
-        "disparity": round(disparity, 3)
+        "disparity": round(disparity, 3),
+        "risk_level": risk_level,
+        "recommendations": recommendations
     }
