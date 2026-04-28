@@ -29,7 +29,7 @@ def generate_fairness_report(audit_data, audit_type="Dataset"):
     else:
         c.setFillColor(colors.green)
     
-    c.drawString(2.5 * inch, height - 2 * inch, risk)
+    c.drawString(3.0 * inch, height - 2 * inch, risk)
     c.setFillColor(colors.black)
 
     # Metrics Summary
@@ -89,6 +89,30 @@ def generate_fairness_report(audit_data, audit_type="Dataset"):
             
         c.drawString(1.2 * inch, y_pos, f"• {rec}")
         y_pos -= 20
+
+    if "ai_narrative" in audit_data and audit_data["ai_narrative"]:
+        c.showPage()
+        y_pos = height - 1 * inch
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(1 * inch, y_pos, "AI Fairness Insights")
+        y_pos -= 30
+        
+        c.setFont("Helvetica", 10)
+        text = audit_data["ai_narrative"].replace("**", "").replace("*", "-")
+        import textwrap
+        lines = text.split('\n')
+        
+        for line in lines:
+            wrapped_lines = textwrap.wrap(line, width=90)
+            if not wrapped_lines:
+                y_pos -= 15
+            for wl in wrapped_lines:
+                if y_pos < 1 * inch:
+                    c.showPage()
+                    c.setFont("Helvetica", 10)
+                    y_pos = height - 1 * inch
+                c.drawString(1 * inch, y_pos, wl)
+                y_pos -= 15
 
     c.showPage()
     c.save()

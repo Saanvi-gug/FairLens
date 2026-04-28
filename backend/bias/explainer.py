@@ -1,8 +1,5 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
-import shap
 import logging
 
 # Setup logging
@@ -16,6 +13,18 @@ def explain_decision(df, row_index, target_col):
     try:
         logger.info(f"Explaining decision for row {row_index}, target {target_col}")
         df_work = df.copy()
+
+        # Import ML dependencies at runtime so the API can start without them
+        try:
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.preprocessing import LabelEncoder
+        except Exception:
+            return {"error": "Missing dependency: scikit-learn not installed. Install via 'pip install scikit-learn'."}
+
+        try:
+            import shap
+        except Exception:
+            return {"error": "Missing dependency: shap not installed. Install via 'pip install shap'."}
         
         # Identify features before dropping rows to keep index consistent if possible
         # or just work with the row as it is in the original df

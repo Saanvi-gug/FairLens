@@ -115,8 +115,10 @@ async def export_pdf(
         
         if audit_type == "Dataset":
             result = analyze_dataset(df, sensitive_col, target_col)
+            result["ai_narrative"] = get_fairness_narrative(result, "Dataset")
         else:
             result = analyze_model(df, sensitive_col, target_col, prediction_col)
+            result["ai_narrative"] = get_fairness_narrative(result, "Model")
             
         pdf_buffer = generate_fairness_report(result, audit_type)
         return StreamingResponse(
@@ -138,6 +140,39 @@ async def api_check(data: dict):
         "disparity_warning": False,
         "recommendation": "Maintain current model parameters"
     }
+
+@app.post("/audit/vertex_endpoint")
+async def audit_vertex(
+    file: UploadFile = File(...),
+    project_id: str = Form(...),
+    location: str = Form(...),
+    endpoint_id: str = Form(...),
+    sensitive_col: str = Form(...),
+    target_col: str = Form(...)
+):
+    try:
+        print(f"Received Vertex audit request for endpoint: {endpoint_id}")
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        
+        # Import here to avoid circular dependencies if any
+        from bias.vertex_integration import audit_vertex_endpoint
+        
+        # This will append a 'vertex_prediction' column to df
+        df_with_preds = audit_vertex_endpoint(
+            df, project_id, location, endpoint_id, sensitive_col, target_col
+        )
+        
+        # Now run the standard model audit
+        result = analyze_model(df_with_preds, sensitive_col, target_col, "vertex_prediction")
+        
+        # Add Vertex AI Gemini Narrative
+        result["ai_narrative"] = get_fairness_narrative(result, "Vertex AI Model Endpoint")
+        return result
+    except Exception as e:
+        print(f"Error in audit_vertex_endpoint: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.get("/demo/{scenario}")
 async def get_demo(scenario: str):

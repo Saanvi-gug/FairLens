@@ -15,6 +15,8 @@ function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [datasetResult, setDatasetResult] = useState(null);
   const [modelResult, setModelResult] = useState(null);
+  const [mitigationResult, setMitigationResult] = useState(null);
+  const [mitigationError, setMitigationError] = useState("");
   const [explanation, setExplanation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -66,6 +68,31 @@ function App() {
     }
   };
 
+  const handleMitigate = async () => {
+    if (!currentFile || !params.prediction || !params.sensitive || !params.target) {
+      setMitigationError("Upload and run a model audit first, then try auto-mitigation.");
+      return;
+    }
+
+    setMitigationError("");
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('file', currentFile);
+    formData.append('sensitive_col', params.sensitive);
+    formData.append('target_col', params.target);
+    formData.append('prediction_col', params.prediction);
+
+    try {
+      const response = await axios.post('/mitigate', formData);
+      setMitigationResult(response.data);
+    } catch (error) {
+      setMitigationError(error.response?.data?.detail || "Mitigation failed. Check selected columns and file format.");
+      console.error("Mitigation failed", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadDemo = async (scenario) => {
     setLoading(true);
     try {
@@ -75,6 +102,7 @@ function App() {
       
       if (scenario === 'hiring') {
         setParams({ sensitive: 'gender', target: 'hired' });
+        setMitigationError('');
         // Auto-run audit
         const formData = new FormData();
         formData.append('file', file);
@@ -85,6 +113,7 @@ function App() {
         setModelResult(null);
       } else {
         setParams({ sensitive: 'race', target: 'loan_status', prediction: 'predicted_loan' });
+        setMitigationError('');
         const formData = new FormData();
         formData.append('file', file);
         formData.append('sensitive_col', 'race');
@@ -93,6 +122,7 @@ function App() {
         const res = await axios.post('/audit/model', formData);
         setModelResult(res.data);
         setDatasetResult(null);
+        setMitigationResult(null);
       }
     } catch (error) {
       console.error("Demo load failed", error);
@@ -220,73 +250,211 @@ function App() {
             ))}
           </div>
 
-          {/* Audit Panels */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-8">
-               <DatasetAuditPanel 
-                setResult={(res) => {
-                  setDatasetResult(res);
-                  // Mock parameters for demo functionality after upload
-                  setParams({ sensitive: 'gender', target: 'hired' });
-                }} 
-              />
-               <ModelAuditPanel 
-                setResult={(res) => {
-                  setModelResult(res);
-                  setParams({ sensitive: 'race', target: 'loan_status', prediction: 'predicted_loan' });
-                }} 
-              />
+          {/* Audit Configuration */}
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex border-b border-slate-100 bg-slate-50/50 px-6 pt-6">
+              <button 
+                onClick={() => setActiveView('dataset')} 
+                className={`pb-4 px-6 font-bold text-sm transition-all flex items-center gap-2 ${activeView === 'dataset' || activeView === 'dashboard' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Database className="w-4 h-4" />
+                Dataset Audit
+              </button>
+              <button 
+                onClick={() => setActiveView('model')} 
+                className={`pb-4 px-6 font-bold text-sm transition-all flex items-center gap-2 ${activeView === 'model' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Rocket className="w-4 h-4" />
+                Model Audit
+              </button>
             </div>
             
-            <div className="space-y-8">
-               {(datasetResult || modelResult) && (
-                 <>
-                   <RecommendationCard 
+            <div className="p-8 bg-white max-w-3xl">
+              {(activeView === 'dataset' || activeView === 'dashboard') ? (
+                <DatasetAuditPanel 
+                  setResult={(res, context) => {
+                    setDatasetResult(res);
+                    setModelResult(null);
+                    setMitigationResult(null);
+                    setMitigationError('');
+                    if (context?.file) {
+                      setCurrentFile(context.file);
+                      setParams({ sensitive: context.sensitive, target: context.target, prediction: '' });
+                    }
+                  }} 
+                />
+              ) : (
+                <ModelAuditPanel 
+                  setResult={(res, context) => {
+                    setModelResult(res);
+                    setDatasetResult(null);
+                    setMitigationResult(null);
+                    setMitigationError('');
+                    if (context?.file) {
+                      setCurrentFile(context.file);
+                      setParams({
+                        sensitive: context.sensitive,
+                        target: context.target,
+                        prediction: context.prediction,
+                      });
+                    }
+                  }} 
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Results Section */}
+          {(datasetResult || modelResult) && (
+            <div className="mt-12 space-y-8 animate-fade-in border-t-2 border-slate-100 pt-12">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-200">
+                     <ShieldCheck className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-slate-800 tracking-tight">Audit Findings</h2>
+                    <p className="text-slate-500 font-medium mt-1">Comprehensive fairness analysis and mitigation options.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column: Recommendations & Mitigation */}
+                <div className="lg:col-span-4 space-y-8">
+                  <RecommendationCard 
                     risk={(modelResult || datasetResult).risk_level}
                     recommendations={(modelResult || datasetResult).recommendations}
                     ai_narrative={(modelResult || datasetResult).ai_narrative}
-                   />
-                   {modelResult && <FairnessMetrics metrics={modelResult.metrics} groupAnalysis={modelResult.group_analysis} />}
-                   {explanation && <ExplanationView explanation={explanation} />}
-                   
-                   {/* Preview Table for Explanations */}
-                   <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                       Decision Audit Trail
-                       <span className="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold uppercase">Audit any row</span>
-                     </h3>
-                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm border-separate border-spacing-y-2">
-                          <thead>
-                            <tr className="text-slate-400 font-bold">
-                              <th className="pb-2 pl-2">ID</th>
-                              <th className="pb-2">Attribute</th>
-                              <th className="pb-2 text-right">Action</th>
+                    fairness_score={(modelResult || datasetResult).fairness_score}
+                  />
+
+                  {!mitigationResult && modelResult && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-8 text-center shadow-lg hover:shadow-xl transition-all">
+                      <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600">
+                        <Settings className="w-8 h-8" />
+                      </div>
+                      <h4 className="text-xl text-emerald-900 font-black mb-2">Automated Mitigation</h4>
+                      <p className="text-emerald-700 text-sm font-medium mb-6">Apply algorithmic mitigation to balance predictions and improve your fairness score.</p>
+                      
+                      <button 
+                        onClick={handleMitigate}
+                        disabled={loading}
+                        className="w-full bg-emerald-600 text-white px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                      >
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Run Auto-Mitigate'}
+                      </button>
+                      {mitigationError && (
+                        <p className="mt-4 text-sm text-rose-600 font-medium bg-rose-50 p-3 rounded-lg">{mitigationError}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Right Column: Metrics, Mitigation Results, Explainers */}
+                <div className="lg:col-span-8 space-y-8">
+                  {modelResult && !mitigationResult && (
+                    <FairnessMetrics metrics={modelResult.metrics} groupAnalysis={modelResult.group_analysis} />
+                  )}
+
+                  {mitigationResult && (
+                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 space-y-8 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full blur-3xl opacity-50 -z-10 translate-x-1/2 -translate-y-1/2" />
+                      
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                          <Settings className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800">Mitigation Analysis</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Before</p>
+                          <p className="text-5xl font-black text-slate-800 mb-2">{mitigationResult.before_metrics.fairness_score}<span className="text-2xl text-slate-400">/100</span></p>
+                          <p className="text-sm font-medium text-slate-500">Initial Fairness Score</p>
+                        </div>
+                        <div className="p-6 bg-emerald-600 rounded-2xl text-center text-white shadow-lg shadow-emerald-200">
+                          <p className="text-sm font-bold text-emerald-200 uppercase tracking-widest mb-4">After</p>
+                          <p className="text-5xl font-black mb-2">{mitigationResult.after_metrics.fairness_score}<span className="text-2xl text-emerald-300">/100</span></p>
+                          <p className="text-sm font-medium text-emerald-100">Post-Mitigation Score</p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                        <p className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-6">Key Metric Improvements</p>
+                        <div className="grid grid-cols-3 gap-6 text-center">
+                          <div>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Statistical Parity</p>
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-slate-400 line-through">{mitigationResult.before_metrics.metrics.statistical_parity_diff.toFixed(2)}</span>
+                              <ChevronRight className="w-4 h-4 text-emerald-500" />
+                              <span className="text-emerald-600 font-black text-lg">{mitigationResult.after_metrics.metrics.statistical_parity_diff.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Equal Opportunity</p>
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-slate-400 line-through">{mitigationResult.before_metrics.metrics.equal_opportunity_diff.toFixed(2)}</span>
+                              <ChevronRight className="w-4 h-4 text-emerald-500" />
+                              <span className="text-emerald-600 font-black text-lg">{mitigationResult.after_metrics.metrics.equal_opportunity_diff.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Predictive Parity</p>
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-slate-400 line-through">{mitigationResult.before_metrics.metrics.predictive_parity_diff.toFixed(2)}</span>
+                              <ChevronRight className="w-4 h-4 text-emerald-500" />
+                              <span className="text-emerald-600 font-black text-lg">{mitigationResult.after_metrics.metrics.predictive_parity_diff.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {explanation && <ExplanationView explanation={explanation} />}
+                  
+                  {/* Preview Table for Explanations */}
+                  <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        Decision Audit Trail
+                      </h3>
+                      <span className="text-xs bg-slate-100 px-3 py-1.5 rounded-lg text-slate-500 font-bold uppercase tracking-wider">Sample Records</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm border-separate border-spacing-y-3">
+                        <thead>
+                          <tr className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            <th className="pb-2 pl-4">Record ID</th>
+                            <th className="pb-2">Protected Class Status</th>
+                            <th className="pb-2 text-right pr-4">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[0, 1, 2].map(idx => (
+                            <tr key={idx} className="bg-slate-50 hover:bg-indigo-50/50 transition-colors rounded-xl group">
+                              <td className="py-4 px-4 font-bold text-slate-700 rounded-l-xl">#Case_10{idx}</td>
+                              <td className="py-4 text-slate-600 font-medium">Demographic Group A</td>
+                              <td className="py-4 pr-4 text-right rounded-r-xl">
+                                <button 
+                                  onClick={() => handleExplain(idx)}
+                                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-indigo-600 font-bold group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-all flex items-center gap-2 ml-auto shadow-sm active:scale-95"
+                                >
+                                  Explain Case <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {[0, 1, 2].map(idx => (
-                              <tr key={idx} className="bg-slate-50 hover:bg-slate-100 rounded-xl">
-                                <td className="py-3 px-4 font-bold text-slate-700">#Case {100 + idx}</td>
-                                <td className="py-3">Demographic Group A</td>
-                                <td className="py-3 pr-4 text-right">
-                                  <button 
-                                    onClick={() => handleExplain(idx)}
-                                    className="p-1 px-3 bg-white border border-slate-200 rounded-lg text-indigo-600 font-bold hover:bg-indigo-50 transition-all flex items-center gap-1 ml-auto"
-                                  >
-                                    Explain <ChevronRight className="w-4 h-4" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                     </div>
-                   </div>
-                 </>
-               )}
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>

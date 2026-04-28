@@ -1,0 +1,11 @@
+pandas
+numpy
+scikit-learn
+shap
+reportlab
+google-cloud-aiplatform
+google-generativeai
+fastapi
+uvicorn
+python-dotenv
+python-multipart

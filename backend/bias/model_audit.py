@@ -49,6 +49,8 @@ def analyze_model(df, sensitive_col, target_col, prediction_col):
 	if disparity > 0.15: risk_level = "High"
 	elif disparity > 0.05: risk_level = "Medium"
 
+	fairness_score = max(0, min(100, int(100 - (disparity * 100))))
+
 	return {
 		"group_analysis": result,
 		"metrics": {
@@ -56,6 +58,7 @@ def analyze_model(df, sensitive_col, target_col, prediction_col):
 			"equal_opportunity_diff": round(equal_opportunity_diff, 3),
 			"predictive_parity_diff": round(predictive_parity_diff, 3),
 		},
+		"fairness_score": fairness_score,
 		"risk_level": risk_level,
 		"recommendations": [
 			"Use reweighting to improve fairness with minimal accuracy loss",

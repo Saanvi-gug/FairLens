@@ -1,4 +1,5 @@
 import pandas as pd
+from bias.model_audit import analyze_model
 
 def mitigate_bias(df, sensitive_col, target_col, prediction_col):
     df = df.copy()
@@ -47,7 +48,13 @@ def mitigate_bias(df, sensitive_col, target_col, prediction_col):
 
     df["mitigated_prediction"] = new_predictions
 
+    # Calculate Before and After metrics
+    before_metrics = analyze_model(df, sensitive_col, target_col, prediction_col)
+    after_metrics = analyze_model(df, sensitive_col, target_col, "mitigated_prediction")
+
     return {
         "message": "Bias mitigation applied",
+        "before_metrics": before_metrics,
+        "after_metrics": after_metrics,
         "preview": df.head().to_dict()
     }

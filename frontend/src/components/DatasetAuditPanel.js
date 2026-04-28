@@ -20,7 +20,11 @@ function DatasetAuditPanel({ setResult }) {
       formData.append("target_col", targetCol);
 
       const res = await axios.post("/audit/dataset", formData);
-      setResult(res.data);
+      setResult(res.data, {
+        file,
+        sensitive: sensitiveCol,
+        target: targetCol,
+      });
     } catch (err) {
       setError(err.response?.data?.detail || err.message || "Audit failed");
     } finally {

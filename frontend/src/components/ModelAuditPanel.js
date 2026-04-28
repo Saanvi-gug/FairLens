@@ -22,7 +22,12 @@ function ModelAuditPanel({ setResult }) {
       formData.append("prediction_col", predictionCol);
 
       const res = await axios.post("/audit/model", formData);
-      setResult(res.data);
+      setResult(res.data, {
+        file,
+        sensitive: sensitiveCol,
+        target: targetCol,
+        prediction: predictionCol,
+      });
     } catch (err) {
       setError(err.response?.data?.detail || err.message || "Audit failed");
     } finally {

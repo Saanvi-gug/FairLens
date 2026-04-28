@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const ExplanationView = ({ explanation }) => {
+  const [showNarrative, setShowNarrative] = useState(false);
+  
   if (!explanation) return null;
 
   if (explanation.error) {
@@ -85,12 +87,36 @@ const ExplanationView = ({ explanation }) => {
              {/* sparkles bg element */}
              <div className="absolute -top-6 -right-6 w-24 h-24 bg-indigo-200 rounded-full blur-2xl opacity-50 pointer-events-none"></div>
              
-             <h4 className="flex items-center gap-2 text-indigo-800 font-bold mb-3 text-sm tracking-wide uppercase">
-               <span className="bg-white p-1 rounded-md text-indigo-600 shadow-sm border border-indigo-50">✨</span> 
-               Gemini Humanized Explanation
-             </h4>
-             <div className="text-indigo-900/80 text-sm leading-relaxed whitespace-pre-wrap font-medium">
-               {explanation.ai_narrative.replace(/\*\*/g, '')}
+             <div className="flex justify-between items-center relative z-10">
+               <h4 className="flex items-center gap-2 text-indigo-800 font-bold text-sm tracking-wide uppercase">
+                 <span className="bg-white p-1 rounded-md text-indigo-600 shadow-sm border border-indigo-50">✨</span> 
+                 Gemini Humanized Explanation
+               </h4>
+               <button 
+                 onClick={() => {
+                   const newWindow = window.open("", "_blank", "width=800,height=600");
+                   newWindow.document.write(`
+                     <html>
+                       <head>
+                         <title>AI Decision Explanation</title>
+                         <style>
+                           body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; line-height: 1.8; color: #1e293b; background-color: #f8fafc; }
+                           h2 { color: #4f46e5; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+                           pre { white-space: pre-wrap; font-family: inherit; font-size: 15px; }
+                         </style>
+                       </head>
+                       <body>
+                         <h2>✨ Gemini Humanized Explanation</h2>
+                         <pre>${explanation.ai_narrative.replace(/\*\*/g, '')}</pre>
+                       </body>
+                     </html>
+                   `);
+                   newWindow.document.close();
+                 }}
+                 className="text-indigo-600 bg-white border border-indigo-100 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+               >
+                 Read AI Explanation
+               </button>
              </div>
           </div>
         </div>

@@ -41,9 +41,12 @@ def analyze_dataset(df, sensitive_col, target_col):
             "Try adding more samples for the under-represented groups."
         ]
 
+    fairness_score = max(0, min(100, int(100 - (disparity * 100))))
+
     return {
         "group_analysis": result,
         "disparity": round(disparity, 3),
+        "fairness_score": fairness_score,
         "risk_level": risk_level,
         "recommendations": recommendations
     }
